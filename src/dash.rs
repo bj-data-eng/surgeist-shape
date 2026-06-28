@@ -394,8 +394,8 @@ pub(crate) fn dash_ellipse(center: Point, radii: Size, stroke: Stroke) -> Result
     let measure_points = ellipse_polyline(
         center,
         Size::new(
-            (radii.width - metrics.measure_inset).max(0.001),
-            (radii.height - metrics.measure_inset).max(0.001),
+            (radii.width() - metrics.measure_inset).max(0.001),
+            (radii.height() - metrics.measure_inset).max(0.001),
         ),
         steps,
     );
@@ -634,18 +634,18 @@ fn corner_point(rect: Rect, corner: Corner) -> Point {
     let max = rect.max();
     match corner {
         Corner::TopLeft => min,
-        Corner::TopRight => Point::new(max.x, min.y),
+        Corner::TopRight => Point::new(max.x(), min.y()),
         Corner::BottomRight => max,
-        Corner::BottomLeft => Point::new(min.x, max.y),
+        Corner::BottomLeft => Point::new(min.x(), max.y()),
     }
 }
 
 pub(crate) fn corner_radius(radii: Radii, corner: Corner) -> f64 {
     match corner {
-        Corner::TopLeft => radii.top_left,
-        Corner::TopRight => radii.top_right,
-        Corner::BottomRight => radii.bottom_right,
-        Corner::BottomLeft => radii.bottom_left,
+        Corner::TopLeft => radii.top_left(),
+        Corner::TopRight => radii.top_right(),
+        Corner::BottomRight => radii.bottom_right(),
+        Corner::BottomLeft => radii.bottom_left(),
     }
 }
 
@@ -658,10 +658,10 @@ fn concave_radii(radii: Radii, inset: f64) -> Radii {
         }
     };
     Radii::new(
-        radius(radii.top_left),
-        radius(radii.top_right),
-        radius(radii.bottom_right),
-        radius(radii.bottom_left),
+        radius(radii.top_left()),
+        radius(radii.top_right()),
+        radius(radii.bottom_right()),
+        radius(radii.bottom_left()),
     )
 }
 
@@ -716,10 +716,15 @@ pub(crate) fn corner_center(rect: Rect, radii: Radii, corner: Corner) -> Point {
     let min = rect.min();
     let max = rect.max();
     match corner {
-        Corner::TopLeft => Point::new(min.x + radii.top_left, min.y + radii.top_left),
-        Corner::TopRight => Point::new(max.x - radii.top_right, min.y + radii.top_right),
-        Corner::BottomRight => Point::new(max.x - radii.bottom_right, max.y - radii.bottom_right),
-        Corner::BottomLeft => Point::new(min.x + radii.bottom_left, max.y - radii.bottom_left),
+        Corner::TopLeft => Point::new(min.x() + radii.top_left(), min.y() + radii.top_left()),
+        Corner::TopRight => Point::new(max.x() - radii.top_right(), min.y() + radii.top_right()),
+        Corner::BottomRight => Point::new(
+            max.x() - radii.bottom_right(),
+            max.y() - radii.bottom_right(),
+        ),
+        Corner::BottomLeft => {
+            Point::new(min.x() + radii.bottom_left(), max.y() - radii.bottom_left())
+        }
     }
 }
 
@@ -931,8 +936,8 @@ fn emit_dot(
     let tangent = mapped_polyline_tangent_at(points, measure_points, distance);
     let epsilon = 0.001;
     let half = epsilon * 0.5;
-    let start = point.translate(-tangent.x * half, -tangent.y * half);
-    let end = point.translate(tangent.x * half, tangent.y * half);
+    let start = point.translate(-tangent.x() * half, -tangent.y() * half);
+    let end = point.translate(tangent.x() * half, tangent.y() * half);
     geometry.push(DashSegment::new(
         path_from_points(&[start, end]),
         metrics.width,
@@ -958,13 +963,13 @@ fn arc_points(
 
 pub(crate) fn ellipse_point(center: Point, radii: Size, angle: f64) -> Point {
     Point::new(
-        center.x + radii.width * angle.cos(),
-        center.y + radii.height * angle.sin(),
+        center.x() + radii.width() * angle.cos(),
+        center.y() + radii.height() * angle.sin(),
     )
 }
 
 pub(crate) fn ellipse_steps(radii: Size) -> usize {
-    let max_radius = radii.width.max(radii.height);
+    let max_radius = radii.width().max(radii.height());
     ((max_radius * 2.0 * PI) / 2.0).ceil().clamp(32.0, 192.0) as usize
 }
 
@@ -1111,8 +1116,8 @@ fn mapped_polyline_tangent_at(points: &[Point], measure_points: &[Point], distan
             let render_length = pair[0].distance_to(pair[1]);
             if render_length > f64::EPSILON {
                 return Point::new(
-                    (pair[1].x - pair[0].x) / render_length,
-                    (pair[1].y - pair[0].y) / render_length,
+                    (pair[1].x() - pair[0].x()) / render_length,
+                    (pair[1].y() - pair[0].y()) / render_length,
                 );
             }
         }
@@ -1125,8 +1130,8 @@ fn mapped_polyline_tangent_at(points: &[Point], measure_points: &[Point], distan
             let length = pair[0].distance_to(pair[1]);
             (length > f64::EPSILON).then(|| {
                 Point::new(
-                    (pair[1].x - pair[0].x) / length,
-                    (pair[1].y - pair[0].y) / length,
+                    (pair[1].x() - pair[0].x()) / length,
+                    (pair[1].y() - pair[0].y()) / length,
                 )
             })
         })
@@ -1134,5 +1139,5 @@ fn mapped_polyline_tangent_at(points: &[Point], measure_points: &[Point], distan
 }
 
 fn lerp_point(a: Point, b: Point, t: f64) -> Point {
-    Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+    Point::new(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t)
 }

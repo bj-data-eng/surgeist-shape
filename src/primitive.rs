@@ -59,16 +59,16 @@ impl Shape {
         match self {
             Shape::Rect(rect) | Shape::RoundedRect { rect, .. } => *rect,
             Shape::Circle { center, radius } => Rect::new(
-                center.x - radius,
-                center.y - radius,
+                center.x() - radius,
+                center.y() - radius,
                 radius * 2.0,
                 radius * 2.0,
             ),
             Shape::Ellipse { center, radii } => Rect::new(
-                center.x - radii.width,
-                center.y - radii.height,
-                radii.width * 2.0,
-                radii.height * 2.0,
+                center.x() - radii.width(),
+                center.y() - radii.height(),
+                radii.width() * 2.0,
+                radii.height() * 2.0,
             ),
             Shape::Path { path, .. } => path.bounds(),
         }
@@ -98,9 +98,8 @@ impl Shape {
         Ok(self.bounds().outset(outset))
     }
 
-    #[must_use]
-    pub fn transformed_bounds(&self, transform: Transform) -> Rect {
-        transform.apply_rect(self.bounds())
+    pub fn transformed_bounds(&self, transform: Transform) -> Result<Rect> {
+        transform.try_apply_rect(self.bounds())
     }
 
     pub fn contains(&self, point: Point) -> bool {
@@ -109,11 +108,11 @@ impl Shape {
             Shape::RoundedRect { rect, radii } => rounded_rect_contains(*rect, *radii, point),
             Shape::Circle { center, radius } => center.distance_to(point) <= *radius,
             Shape::Ellipse { center, radii } => {
-                if radii.width <= 0.0 || radii.height <= 0.0 {
+                if radii.width() <= 0.0 || radii.height() <= 0.0 {
                     return false;
                 }
-                let x = (point.x - center.x) / radii.width;
-                let y = (point.y - center.y) / radii.height;
+                let x = (point.x() - center.x()) / radii.width();
+                let y = (point.y() - center.y()) / radii.height();
                 x * x + y * y <= 1.0
             }
             Shape::Path { path, fill_rule } => path.contains(point, *fill_rule),
@@ -135,8 +134,8 @@ impl Shape {
             Shape::Ellipse { center, radii } => Shape::Ellipse {
                 center: *center,
                 radii: Size::new(
-                    (radii.width + amount).max(0.0),
-                    (radii.height + amount).max(0.0),
+                    (radii.width() + amount).max(0.0),
+                    (radii.height() + amount).max(0.0),
                 ),
             },
             Shape::Path { .. } => {
@@ -169,7 +168,7 @@ impl Shape {
                 kurbo::Circle::new(center.to_kurbo(), *radius).to_path(PATH_TOLERANCE)
             }
             Shape::Ellipse { center, radii } => {
-                kurbo::Ellipse::new(center.to_kurbo(), (radii.width, radii.height), 0.0)
+                kurbo::Ellipse::new(center.to_kurbo(), (radii.width(), radii.height()), 0.0)
                     .to_path(PATH_TOLERANCE)
             }
             Shape::Path { path, .. } => path.to_kurbo(),
@@ -215,8 +214,8 @@ impl Shape {
             Shape::Ellipse { center, radii } => {
                 state.write_u8(4);
                 hash_point(&mut state, *center);
-                state.write_f64(radii.width);
-                state.write_f64(radii.height);
+                state.write_f64(radii.width());
+                state.write_f64(radii.height());
             }
             Shape::Path { path, fill_rule } => {
                 state.write_u8(5);
@@ -261,37 +260,37 @@ fn rounded_rect_contains(rect: Rect, radii: Radii, point: Point) -> bool {
     for (corner, radius, cx, cy) in [
         (
             Corner::TopLeft,
-            radii.top_left,
-            rect.origin.x + radii.top_left,
-            rect.origin.y + radii.top_left,
+            radii.top_left(),
+            rect.origin().x() + radii.top_left(),
+            rect.origin().y() + radii.top_left(),
         ),
         (
             Corner::TopRight,
-            radii.top_right,
-            max.x - radii.top_right,
-            rect.origin.y + radii.top_right,
+            radii.top_right(),
+            max.x() - radii.top_right(),
+            rect.origin().y() + radii.top_right(),
         ),
         (
             Corner::BottomRight,
-            radii.bottom_right,
-            max.x - radii.bottom_right,
-            max.y - radii.bottom_right,
+            radii.bottom_right(),
+            max.x() - radii.bottom_right(),
+            max.y() - radii.bottom_right(),
         ),
         (
             Corner::BottomLeft,
-            radii.bottom_left,
-            rect.origin.x + radii.bottom_left,
-            max.y - radii.bottom_left,
+            radii.bottom_left(),
+            rect.origin().x() + radii.bottom_left(),
+            max.y() - radii.bottom_left(),
         ),
     ] {
         if radius <= 0.0 {
             continue;
         }
         let in_corner = match corner {
-            Corner::TopLeft => point.x < cx && point.y < cy,
-            Corner::TopRight => point.x > cx && point.y < cy,
-            Corner::BottomRight => point.x > cx && point.y > cy,
-            Corner::BottomLeft => point.x < cx && point.y > cy,
+            Corner::TopLeft => point.x() < cx && point.y() < cy,
+            Corner::TopRight => point.x() > cx && point.y() < cy,
+            Corner::BottomRight => point.x() > cx && point.y() > cy,
+            Corner::BottomLeft => point.x() < cx && point.y() > cy,
         };
         if in_corner && Point::new(cx, cy).distance_to(point) > radius {
             return false;

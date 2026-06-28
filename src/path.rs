@@ -99,7 +99,7 @@ impl Path {
         if self.commands.is_empty() {
             return Rect::empty();
         }
-        self.to_kurbo().bounding_box().into()
+        Rect::try_from(self.to_kurbo().bounding_box()).unwrap_or_default()
     }
 
     #[must_use]
@@ -147,16 +147,23 @@ impl Path {
         for element in path.elements() {
             match *element {
                 kurbo::PathEl::MoveTo(point) => {
-                    result.move_to(point.into());
+                    result.move_to(Point::new_unchecked(point.x, point.y));
                 }
                 kurbo::PathEl::LineTo(point) => {
-                    result.line_to(point.into());
+                    result.line_to(Point::new_unchecked(point.x, point.y));
                 }
                 kurbo::PathEl::QuadTo(control, end) => {
-                    result.quad_to(control.into(), end.into());
+                    result.quad_to(
+                        Point::new_unchecked(control.x, control.y),
+                        Point::new_unchecked(end.x, end.y),
+                    );
                 }
                 kurbo::PathEl::CurveTo(a, b, end) => {
-                    result.cubic_to(a.into(), b.into(), end.into());
+                    result.cubic_to(
+                        Point::new_unchecked(a.x, a.y),
+                        Point::new_unchecked(b.x, b.y),
+                        Point::new_unchecked(end.x, end.y),
+                    );
                 }
                 kurbo::PathEl::ClosePath => {
                     result.close();

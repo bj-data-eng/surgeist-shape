@@ -25,21 +25,21 @@ impl Key {
     }
 }
 pub(crate) fn hash_point(state: &mut StableHasher, point: Point) {
-    state.write_f64(point.x);
-    state.write_f64(point.y);
+    state.write_f64(point.x());
+    state.write_f64(point.y());
 }
 
 pub(crate) fn hash_rect(state: &mut StableHasher, rect: Rect) {
-    hash_point(state, rect.origin);
-    state.write_f64(rect.size.width);
-    state.write_f64(rect.size.height);
+    hash_point(state, rect.origin());
+    state.write_f64(rect.size().width());
+    state.write_f64(rect.size().height());
 }
 
 pub(crate) fn hash_radii(state: &mut StableHasher, radii: Radii) {
-    state.write_f64(radii.top_left);
-    state.write_f64(radii.top_right);
-    state.write_f64(radii.bottom_right);
-    state.write_f64(radii.bottom_left);
+    state.write_f64(radii.top_left());
+    state.write_f64(radii.top_right());
+    state.write_f64(radii.bottom_right());
+    state.write_f64(radii.bottom_left());
 }
 
 #[derive(Clone, Copy)]
