@@ -2,56 +2,93 @@ use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stroke {
-    pub width: f64,
-    pub join: LineJoin,
-    pub start_cap: LineCap,
-    pub end_cap: LineCap,
-    pub miter_limit: f64,
-    pub dash: Option<Dash>,
-    pub align: StrokeAlign,
+    width: f64,
+    join: LineJoin,
+    start_cap: LineCap,
+    end_cap: LineCap,
+    miter_limit: f64,
+    dash: Option<Dash>,
+    align: StrokeAlign,
 }
 
 impl Stroke {
-    #[must_use]
-    pub fn new(width: f64) -> Self {
-        Self {
+    pub fn try_new(width: f64) -> Result<Self> {
+        validate_non_negative_kind(width, "stroke width", NumericKind::Stroke)?;
+        Ok(Self {
             width,
             ..Self::default()
-        }
+        })
     }
 
     #[must_use]
     pub fn hairline() -> Self {
-        Self::new(1.0)
+        Self::default()
     }
 
-    #[must_use]
-    pub fn centered(width: f64) -> Self {
-        Self {
+    pub fn try_centered(width: f64) -> Result<Self> {
+        Ok(Self {
             align: StrokeAlign::Center,
-            ..Self::new(width)
-        }
+            ..Self::try_new(width)?
+        })
     }
 
-    #[must_use]
-    pub fn inside(width: f64) -> Self {
-        Self {
+    pub fn try_inside(width: f64) -> Result<Self> {
+        Ok(Self {
             align: StrokeAlign::Inside,
-            ..Self::new(width)
-        }
+            ..Self::try_new(width)?
+        })
+    }
+
+    pub fn try_outside(width: f64) -> Result<Self> {
+        Ok(Self {
+            align: StrokeAlign::Outside,
+            ..Self::try_new(width)?
+        })
     }
 
     #[must_use]
-    pub fn outside(width: f64) -> Self {
-        Self {
-            align: StrokeAlign::Outside,
-            ..Self::new(width)
-        }
+    pub const fn with_join(mut self, join: LineJoin) -> Self {
+        self.join = join;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_caps(mut self, start_cap: LineCap, end_cap: LineCap) -> Self {
+        self.start_cap = start_cap;
+        self.end_cap = end_cap;
+        self
+    }
+
+    pub fn try_with_miter_limit(mut self, miter_limit: f64) -> Result<Self> {
+        validate_non_negative_kind(miter_limit, "stroke miter limit", NumericKind::Stroke)?;
+        self.miter_limit = miter_limit;
+        Ok(self)
+    }
+
+    #[must_use]
+    pub const fn with_dash(mut self, dash: Dash) -> Self {
+        self.dash = Some(dash);
+        self
+    }
+
+    #[must_use]
+    pub const fn width(self) -> f64 {
+        self.width
+    }
+
+    #[must_use]
+    pub const fn align(self) -> StrokeAlign {
+        self.align
+    }
+
+    #[must_use]
+    pub const fn dash(self) -> Option<Dash> {
+        self.dash
     }
 
     pub fn validate(self) -> Result<()> {
-        validate_non_negative(self.width, "stroke width")?;
-        validate_non_negative(self.miter_limit, "stroke miter limit")?;
+        validate_non_negative_kind(self.width, "stroke width", NumericKind::Stroke)?;
+        validate_non_negative_kind(self.miter_limit, "stroke miter limit", NumericKind::Stroke)?;
         if let Some(dash) = self.dash {
             dash.validate()?;
         }

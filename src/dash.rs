@@ -13,14 +13,25 @@ pub struct Dash {
 }
 
 impl Dash {
-    #[must_use]
-    pub fn new(density: f64) -> Self {
+    pub fn try_new(density: f64) -> Result<Self> {
+        validate_non_negative_kind(density, "dash density", NumericKind::Dash)?;
+        if density <= f64::EPSILON {
+            return Err(Error::new(
+                ErrorCode::InvalidDash,
+                "dash density must be greater than zero",
+            ));
+        }
+        Ok(Self::new_unchecked(density))
+    }
+
+    fn new_unchecked(density: f64) -> Self {
+        let anchor = DashAnchor::corner(Corner::TopLeft);
         Self {
             density,
             phase: 0.0,
             rounded: false,
             sides: SideSet::all(),
-            anchors: [DashAnchor::Corner(Corner::TopLeft); 4],
+            anchors: [anchor; 4],
             anchor_count: 0,
             constraints: [None],
         }
@@ -28,24 +39,32 @@ impl Dash {
 
     #[must_use]
     pub fn dashed() -> Self {
-        Self::new(1.0)
+        Self::new_unchecked(1.0)
     }
 
     #[must_use]
     pub fn dotted() -> Self {
-        Self::new(1.0).rounded().circular()
+        Self::dashed().rounded().circular()
     }
 
-    #[must_use]
-    pub fn with_density(mut self, density: f64) -> Self {
+    pub fn try_with_density(mut self, density: f64) -> Result<Self> {
+        validate_non_negative_kind(density, "dash density", NumericKind::Dash)?;
+        if density <= f64::EPSILON {
+            return Err(Error::new(
+                ErrorCode::InvalidDash,
+                "dash density must be greater than zero",
+            ));
+        }
         self.density = density;
-        self
+        Ok(self)
     }
 
-    #[must_use]
-    pub fn with_sides(mut self, sides: SideSet) -> Self {
+    pub fn with_sides(mut self, sides: SideSet) -> Result<Self> {
+        if sides.is_empty() {
+            return Err(Error::new(ErrorCode::InvalidDash, "dash side set is empty"));
+        }
         self.sides = sides;
-        self
+        Ok(self)
     }
 
     #[must_use]
@@ -65,27 +84,30 @@ impl Dash {
     pub fn with_corner_anchors(mut self) -> Self {
         self.anchor_count = 4;
         self.anchors = [
-            DashAnchor::Corner(Corner::TopLeft),
-            DashAnchor::Corner(Corner::TopRight),
-            DashAnchor::Corner(Corner::BottomRight),
-            DashAnchor::Corner(Corner::BottomLeft),
+            DashAnchor::corner(Corner::TopLeft),
+            DashAnchor::corner(Corner::TopRight),
+            DashAnchor::corner(Corner::BottomRight),
+            DashAnchor::corner(Corner::BottomLeft),
         ];
         self
     }
 
-    #[must_use]
-    pub fn with_anchor(mut self, anchor: DashAnchor) -> Self {
-        if self.anchor_count < self.anchors.len() {
-            self.anchors[self.anchor_count] = anchor;
-            self.anchor_count += 1;
+    pub fn with_anchor(mut self, anchor: DashAnchor) -> Result<Self> {
+        if self.anchor_count >= self.anchors.len() {
+            return Err(Error::new(
+                ErrorCode::InvalidDash,
+                "dash supports at most four anchors",
+            ));
         }
-        self
+        self.anchors[self.anchor_count] = anchor;
+        self.anchor_count += 1;
+        Ok(self)
     }
 
-    #[must_use]
-    pub fn with_phase(mut self, phase: f64) -> Self {
+    pub fn try_with_phase(mut self, phase: f64) -> Result<Self> {
+        validate_finite(phase, "dash phase")?;
         self.phase = phase;
-        self
+        Ok(self)
     }
 
     #[must_use]
@@ -122,7 +144,7 @@ impl Dash {
     }
 
     pub fn validate(self) -> Result<()> {
-        validate_non_negative(self.density, "dash density")?;
+        validate_non_negative_kind(self.density, "dash density", NumericKind::Dash)?;
         validate_finite(self.phase, "dash phase")?;
         if self.density <= f64::EPSILON {
             return Err(Error::new(
@@ -134,8 +156,11 @@ impl Dash {
             return Err(Error::new(ErrorCode::InvalidDash, "dash side set is empty"));
         }
         for anchor in self.anchors.iter().take(self.anchor_count) {
-            if let DashAnchor::ContourOffset(offset) = *anchor {
-                validate_non_negative(offset, "dash contour offset")?;
+            match anchor.kind {
+                DashAnchorKind::Corner(_) => {}
+                DashAnchorKind::ContourOffset(offset) => {
+                    let _ = offset.get();
+                }
             }
         }
         Ok(())
@@ -143,20 +168,28 @@ impl Dash {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DashAnchor {
+pub struct DashAnchor {
+    kind: DashAnchorKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DashAnchorKind {
     Corner(Corner),
-    ContourOffset(f64),
+    ContourOffset(NonNegative),
 }
 
 impl DashAnchor {
     #[must_use]
     pub const fn corner(corner: Corner) -> Self {
-        Self::Corner(corner)
+        Self {
+            kind: DashAnchorKind::Corner(corner),
+        }
     }
 
-    #[must_use]
-    pub const fn contour_offset(offset: f64) -> Self {
-        Self::ContourOffset(offset)
+    pub fn try_contour_offset(offset: f64) -> Result<Self> {
+        Ok(Self {
+            kind: DashAnchorKind::ContourOffset(NonNegative::try_new(offset, NumericKind::Dash)?),
+        })
     }
 }
 
@@ -206,14 +239,20 @@ impl DashGeometry {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DashSegment {
-    pub path: Path,
-    pub width: f64,
-    pub rounded: bool,
+    path: Path,
+    width: f64,
+    rounded: bool,
 }
 
 impl DashSegment {
+    pub fn try_new(path: Path, width: f64, rounded: bool) -> Result<Self> {
+        path.validate()?;
+        validate_non_negative_kind(width, "dash segment width", NumericKind::Stroke)?;
+        Ok(Self::new_unchecked(path, width, rounded))
+    }
+
     #[must_use]
-    pub const fn new(path: Path, width: f64, rounded: bool) -> Self {
+    pub(crate) const fn new_unchecked(path: Path, width: f64, rounded: bool) -> Self {
         Self {
             path,
             width,
@@ -229,6 +268,11 @@ impl DashSegment {
     #[must_use]
     pub fn rounded(&self) -> bool {
         self.rounded
+    }
+
+    #[must_use]
+    pub fn width(&self) -> f64 {
+        self.width
     }
 
     #[must_use]
@@ -361,13 +405,15 @@ pub enum Corner {
     BottomLeft,
 }
 pub(crate) fn dash_rect(rect: Rect, radii: Radii, stroke: Stroke) -> Result<DashGeometry> {
-    let dash = stroke.dash.expect("dash checked by caller");
+    let dash = stroke
+        .dash()
+        .ok_or_else(|| Error::new(ErrorCode::InvalidDash, "stroke has no dash geometry"))?;
     let mut geometry = DashGeometry::new();
     let metrics = DashMetrics::resolve(stroke, dash);
     let radii = radii.normalized_for(rect)?;
     let contour = RectContour::new(rect, radii, metrics);
 
-    for run in side_runs(dash.sides) {
+    for run in side_runs(dash.sides()) {
         if run.closed() {
             add_centered_closed_dashes(
                 &mut geometry,
@@ -387,7 +433,9 @@ pub(crate) fn dash_rect(rect: Rect, radii: Radii, stroke: Stroke) -> Result<Dash
 
 pub(crate) fn dash_ellipse(center: Point, radii: Size, stroke: Stroke) -> Result<DashGeometry> {
     radii.validate("dash ellipse radii")?;
-    let dash = stroke.dash.expect("dash checked by caller");
+    let dash = stroke
+        .dash()
+        .ok_or_else(|| Error::new(ErrorCode::InvalidDash, "stroke has no dash geometry"))?;
     let metrics = DashMetrics::resolve(stroke, dash);
     let steps = ellipse_steps(radii);
     let points = ellipse_polyline_with_steps(center, radii, steps);
@@ -418,18 +466,18 @@ pub(crate) struct DashMetrics {
 impl DashMetrics {
     pub(crate) fn resolve(stroke: Stroke, dash: Dash) -> Self {
         let circular = dash.has_constraint(DashConstraint::Circular);
-        let width = stroke.width;
+        let width = stroke.width();
         let mark = if circular {
             width
         } else {
-            (width * 3.0 / dash.density).max(width)
+            (width * 3.0 / dash.density()).max(width)
         };
         let gap = if circular {
-            (width / dash.density).max(width * 0.5)
+            (width / dash.density()).max(width * 0.5)
         } else {
-            (width * 1.5 / dash.density).max(width * 0.5)
+            (width * 1.5 / dash.density()).max(width * 0.5)
         };
-        let measure_inset = match stroke.align {
+        let measure_inset = match stroke.align() {
             StrokeAlign::Center => width * 0.5,
             StrokeAlign::Inside => width,
             StrokeAlign::Outside => 0.0,
@@ -438,9 +486,9 @@ impl DashMetrics {
             width,
             mark,
             gap,
-            phase: dash.phase,
+            phase: dash.phase(),
             measure_inset,
-            rounded: dash.rounded || circular,
+            rounded: dash.is_rounded() || circular,
             circular,
         }
     }
@@ -917,7 +965,7 @@ fn emit_centered_mark(
     };
 
     if segment.len() >= 2 {
-        geometry.push(DashSegment::new(
+        geometry.push(DashSegment::new_unchecked(
             path_from_points(&segment),
             metrics.width,
             metrics.rounded,
@@ -938,7 +986,7 @@ fn emit_dot(
     let half = epsilon * 0.5;
     let start = point.translate(-tangent.x() * half, -tangent.y() * half);
     let end = point.translate(tangent.x() * half, tangent.y() * half);
-    geometry.push(DashSegment::new(
+    geometry.push(DashSegment::new_unchecked(
         path_from_points(&[start, end]),
         metrics.width,
         true,

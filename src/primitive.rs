@@ -104,12 +104,12 @@ impl Shape {
             return Ok(self.bounds());
         };
         stroke.validate()?;
-        let outset = match stroke.align {
-            StrokeAlign::Center => stroke.width * 0.5,
+        let outset = match stroke.align() {
+            StrokeAlign::Center => stroke.width() * 0.5,
             StrokeAlign::Inside => 0.0,
-            StrokeAlign::Outside => stroke.width,
+            StrokeAlign::Outside => stroke.width(),
         };
-        if matches!(&self.kind, ShapeKind::Path { .. }) && stroke.align != StrokeAlign::Center {
+        if matches!(&self.kind, ShapeKind::Path { .. }) && stroke.align() != StrokeAlign::Center {
             return Err(Error::new(
                 ErrorCode::UnsupportedStrokeBounds,
                 "inside and outside stroke bounds for arbitrary paths are not supported",
@@ -257,7 +257,7 @@ impl Shape {
     pub fn dashed_stroke(&self, stroke: Stroke) -> Result<DashGeometry> {
         stroke.validate()?;
         let dash = stroke
-            .dash
+            .dash()
             .ok_or_else(|| Error::new(ErrorCode::InvalidDash, "stroke has no dash geometry"))?;
         dash.validate()?;
         match &self.kind {

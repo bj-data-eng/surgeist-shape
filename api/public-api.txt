@@ -25,12 +25,6 @@ pub surgeist_shape::Corner::BottomLeft
 pub surgeist_shape::Corner::BottomRight
 pub surgeist_shape::Corner::TopLeft
 pub surgeist_shape::Corner::TopRight
-pub enum surgeist_shape::DashAnchor
-pub surgeist_shape::DashAnchor::ContourOffset(f64)
-pub surgeist_shape::DashAnchor::Corner(surgeist_shape::Corner)
-impl surgeist_shape::DashAnchor
-pub const fn surgeist_shape::DashAnchor::contour_offset(offset: f64) -> Self
-pub const fn surgeist_shape::DashAnchor::corner(corner: surgeist_shape::Corner) -> Self
 pub enum surgeist_shape::DashConstraint
 pub surgeist_shape::DashConstraint::Circular
 pub enum surgeist_shape::ErrorCode
@@ -89,16 +83,20 @@ pub fn surgeist_shape::Dash::density(self) -> f64
 pub fn surgeist_shape::Dash::dotted() -> Self
 pub fn surgeist_shape::Dash::has_constraint(self, constraint: surgeist_shape::DashConstraint) -> bool
 pub fn surgeist_shape::Dash::is_rounded(self) -> bool
-pub fn surgeist_shape::Dash::new(density: f64) -> Self
 pub fn surgeist_shape::Dash::phase(self) -> f64
 pub fn surgeist_shape::Dash::rounded(self) -> Self
 pub fn surgeist_shape::Dash::sides(self) -> surgeist_shape::SideSet
+pub fn surgeist_shape::Dash::try_new(density: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Dash::try_with_density(self, density: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Dash::try_with_phase(self, phase: f64) -> surgeist_shape::Result<Self>
 pub fn surgeist_shape::Dash::validate(self) -> surgeist_shape::Result<()>
-pub fn surgeist_shape::Dash::with_anchor(self, anchor: surgeist_shape::DashAnchor) -> Self
+pub fn surgeist_shape::Dash::with_anchor(self, anchor: surgeist_shape::DashAnchor) -> surgeist_shape::Result<Self>
 pub fn surgeist_shape::Dash::with_corner_anchors(self) -> Self
-pub fn surgeist_shape::Dash::with_density(self, density: f64) -> Self
-pub fn surgeist_shape::Dash::with_phase(self, phase: f64) -> Self
-pub fn surgeist_shape::Dash::with_sides(self, sides: surgeist_shape::SideSet) -> Self
+pub fn surgeist_shape::Dash::with_sides(self, sides: surgeist_shape::SideSet) -> surgeist_shape::Result<Self>
+pub struct surgeist_shape::DashAnchor
+impl surgeist_shape::DashAnchor
+pub const fn surgeist_shape::DashAnchor::corner(corner: surgeist_shape::Corner) -> Self
+pub fn surgeist_shape::DashAnchor::try_contour_offset(offset: f64) -> surgeist_shape::Result<Self>
 pub struct surgeist_shape::DashGeometry
 impl surgeist_shape::DashGeometry
 pub fn surgeist_shape::DashGeometry::bounds(&self) -> surgeist_shape::Rect
@@ -107,15 +105,13 @@ pub fn surgeist_shape::DashGeometry::is_empty(&self) -> bool
 pub fn surgeist_shape::DashGeometry::new() -> Self
 pub fn surgeist_shape::DashGeometry::segments(&self) -> &[surgeist_shape::DashSegment]
 pub struct surgeist_shape::DashSegment
-pub surgeist_shape::DashSegment::path: surgeist_shape::Path
-pub surgeist_shape::DashSegment::rounded: bool
-pub surgeist_shape::DashSegment::width: f64
 impl surgeist_shape::DashSegment
 pub fn surgeist_shape::DashSegment::bounds(&self) -> surgeist_shape::Rect
 pub fn surgeist_shape::DashSegment::contour_length(&self) -> f64
-pub const fn surgeist_shape::DashSegment::new(path: surgeist_shape::Path, width: f64, rounded: bool) -> Self
 pub fn surgeist_shape::DashSegment::path(&self) -> &surgeist_shape::Path
 pub fn surgeist_shape::DashSegment::rounded(&self) -> bool
+pub fn surgeist_shape::DashSegment::try_new(path: surgeist_shape::Path, width: f64, rounded: bool) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::DashSegment::width(&self) -> f64
 pub struct surgeist_shape::Error
 pub surgeist_shape::Error::code: surgeist_shape::ErrorCode
 pub surgeist_shape::Error::message: alloc::string::String
@@ -285,21 +281,21 @@ pub fn surgeist_shape::Size::try_new(width: f64, height: f64) -> surgeist_shape:
 pub const fn surgeist_shape::Size::width(self) -> f64
 pub const fn surgeist_shape::Size::zero() -> Self
 pub struct surgeist_shape::Stroke
-pub surgeist_shape::Stroke::align: surgeist_shape::StrokeAlign
-pub surgeist_shape::Stroke::dash: core::option::Option<surgeist_shape::Dash>
-pub surgeist_shape::Stroke::end_cap: surgeist_shape::LineCap
-pub surgeist_shape::Stroke::join: surgeist_shape::LineJoin
-pub surgeist_shape::Stroke::miter_limit: f64
-pub surgeist_shape::Stroke::start_cap: surgeist_shape::LineCap
-pub surgeist_shape::Stroke::width: f64
 impl surgeist_shape::Stroke
+pub const fn surgeist_shape::Stroke::align(self) -> surgeist_shape::StrokeAlign
 pub fn surgeist_shape::Stroke::bounds_for(self, shape: &surgeist_shape::Shape) -> surgeist_shape::Result<surgeist_shape::Rect>
-pub fn surgeist_shape::Stroke::centered(width: f64) -> Self
+pub const fn surgeist_shape::Stroke::dash(self) -> core::option::Option<surgeist_shape::Dash>
 pub fn surgeist_shape::Stroke::hairline() -> Self
-pub fn surgeist_shape::Stroke::inside(width: f64) -> Self
-pub fn surgeist_shape::Stroke::new(width: f64) -> Self
-pub fn surgeist_shape::Stroke::outside(width: f64) -> Self
+pub fn surgeist_shape::Stroke::try_centered(width: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Stroke::try_inside(width: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Stroke::try_new(width: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Stroke::try_outside(width: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Stroke::try_with_miter_limit(self, miter_limit: f64) -> surgeist_shape::Result<Self>
 pub fn surgeist_shape::Stroke::validate(self) -> surgeist_shape::Result<()>
+pub const fn surgeist_shape::Stroke::width(self) -> f64
+pub const fn surgeist_shape::Stroke::with_caps(self, start_cap: surgeist_shape::LineCap, end_cap: surgeist_shape::LineCap) -> Self
+pub const fn surgeist_shape::Stroke::with_dash(self, dash: surgeist_shape::Dash) -> Self
+pub const fn surgeist_shape::Stroke::with_join(self, join: surgeist_shape::LineJoin) -> Self
 impl core::default::Default for surgeist_shape::Stroke
 pub fn surgeist_shape::Stroke::default() -> Self
 pub struct surgeist_shape::Transform

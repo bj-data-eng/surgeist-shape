@@ -29,6 +29,10 @@ fn radii(top_left: f64, top_right: f64, bottom_right: f64, bottom_left: f64) -> 
     Radii::try_new(top_left, top_right, bottom_right, bottom_left).unwrap()
 }
 
+fn stroke_with_dash(width: f64, dash: Dash) -> Stroke {
+    Stroke::try_new(width).unwrap().with_dash(dash)
+}
+
 #[test]
 fn non_negative_scalar_rejects_negative_values_with_semantic_code() {
     let error = NonNegative::try_new(-1.0, NumericKind::Size).unwrap_err();
@@ -155,6 +159,72 @@ fn shape_path_bounds_preserve_degenerate_path_bounds() {
 }
 
 #[test]
+fn stroke_constructor_rejects_negative_width() {
+    let error = Stroke::try_new(-1.0).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidStroke);
+}
+
+#[test]
+fn dash_constructor_rejects_zero_density() {
+    let error = Dash::try_new(0.0).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidDash);
+}
+
+#[test]
+fn dash_segment_constructor_rejects_negative_width() {
+    let path = {
+        let mut builder = PathBuilder::new();
+        builder
+            .move_to(Point::zero())
+            .line_to(Point::try_new(1.0, 0.0).unwrap());
+        builder.build().unwrap()
+    };
+    let error = DashSegment::try_new(path, -1.0, false).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidStroke);
+}
+
+#[test]
+fn dash_anchor_rejects_negative_contour_offset() {
+    let error = DashAnchor::try_contour_offset(-1.0).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidDash);
+}
+
+#[test]
+fn dash_rejects_empty_side_set_but_side_set_none_is_valid() {
+    let sides = SideSet::none();
+
+    assert!(sides.is_empty());
+    assert!(!sides.includes(Side::Top));
+
+    let error = Dash::dashed().with_sides(sides).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidDash);
+}
+
+#[test]
+fn dash_with_anchor_rejects_fifth_anchor() {
+    let dash = Dash::dashed()
+        .with_anchor(DashAnchor::corner(Corner::TopLeft))
+        .unwrap()
+        .with_anchor(DashAnchor::corner(Corner::TopRight))
+        .unwrap()
+        .with_anchor(DashAnchor::corner(Corner::BottomRight))
+        .unwrap()
+        .with_anchor(DashAnchor::corner(Corner::BottomLeft))
+        .unwrap();
+
+    let error = dash
+        .with_anchor(DashAnchor::corner(Corner::TopLeft))
+        .unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidDash);
+}
+
+#[test]
 fn radii_normalization_reduces_asymmetric_corners() {
     let rect = mk_rect(0.0, 0.0, 10.0, 8.0);
     let radii = radii(8.0, 8.0, 4.0, 4.0).normalized_for(rect).unwrap();
@@ -207,33 +277,30 @@ fn visual_bounds_respect_stroke_alignment() {
     let shape = Shape::rect(mk_rect(10.0, 20.0, 30.0, 40.0));
 
     assert_eq!(
-        shape.visual_bounds(Some(Stroke::inside(8.0))).unwrap(),
+        shape
+            .visual_bounds(Some(Stroke::try_inside(8.0).unwrap()))
+            .unwrap(),
         mk_rect(10.0, 20.0, 30.0, 40.0)
     );
     assert_eq!(
-        shape.visual_bounds(Some(Stroke::centered(8.0))).unwrap(),
+        shape
+            .visual_bounds(Some(Stroke::try_centered(8.0).unwrap()))
+            .unwrap(),
         mk_rect(6.0, 16.0, 38.0, 48.0)
     );
     assert_eq!(
-        shape.visual_bounds(Some(Stroke::outside(8.0))).unwrap(),
+        shape
+            .visual_bounds(Some(Stroke::try_outside(8.0).unwrap()))
+            .unwrap(),
         mk_rect(2.0, 12.0, 46.0, 56.0)
     );
 }
 
 #[test]
 fn dash_rejects_non_finite_phase() {
-    let stroke = Stroke {
-        dash: Some(Dash::dashed().with_phase(f64::NAN)),
-        ..Stroke::default()
-    };
+    let error = Dash::dashed().try_with_phase(f64::NAN).unwrap_err();
 
-    assert_eq!(
-        Shape::rect(mk_rect(0.0, 0.0, 80.0, 40.0))
-            .dashed_stroke(stroke)
-            .unwrap_err()
-            .code,
-        ErrorCode::NonFinite
-    );
+    assert_eq!(error.code, ErrorCode::NonFinite);
 }
 
 #[test]
@@ -257,12 +324,9 @@ fn converts_rect_to_path() {
 fn side_scoped_dashes_emit_only_included_sides() {
     let dash = Dash::dashed()
         .with_sides(SideSet::top())
+        .unwrap()
         .with_corner_anchors();
-    let stroke = Stroke {
-        width: 2.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let stroke = stroke_with_dash(2.0, dash);
     let geometry = Shape::rect(mk_rect(0.0, 0.0, 80.0, 40.0))
         .dashed_stroke(stroke)
         .unwrap();
@@ -282,16 +346,8 @@ fn side_scoped_dashes_emit_only_included_sides() {
 
 #[test]
 fn dash_phase_offsets_resolved_geometry() {
-    let base = Stroke {
-        width: 4.0,
-        dash: Some(Dash::dashed()),
-        ..Stroke::default()
-    };
-    let phased = Stroke {
-        width: 4.0,
-        dash: Some(Dash::dashed().with_phase(10.0)),
-        ..Stroke::default()
-    };
+    let base = stroke_with_dash(4.0, Dash::dashed());
+    let phased = stroke_with_dash(4.0, Dash::dashed().try_with_phase(10.0).unwrap());
     let shape = Shape::rect(mk_rect(0.0, 0.0, 80.0, 40.0));
 
     assert_ne!(
@@ -303,11 +359,7 @@ fn dash_phase_offsets_resolved_geometry() {
 #[test]
 fn corner_dash_directions_stay_inside_rect_bounds() {
     let dash = Dash::dashed().with_corner_anchors();
-    let stroke = Stroke {
-        width: 4.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let stroke = stroke_with_dash(4.0, dash);
     let rect = mk_rect(0.0, 0.0, 80.0, 40.0);
     let geometry = Shape::rect(rect).dashed_stroke(stroke).unwrap();
 
@@ -333,12 +385,9 @@ fn corner_dash_directions_stay_inside_rect_bounds() {
 fn circular_one_sided_corner_dots_are_omitted() {
     let dash = Dash::dotted()
         .with_sides(SideSet::top())
+        .unwrap()
         .with_corner_anchors();
-    let stroke = Stroke {
-        width: 4.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let stroke = stroke_with_dash(4.0, dash);
     let geometry = Shape::rect(mk_rect(0.0, 0.0, 80.0, 40.0))
         .dashed_stroke(stroke)
         .unwrap();
@@ -353,12 +402,8 @@ fn circular_one_sided_corner_dots_are_omitted() {
 
 #[test]
 fn ellipse_dashes_have_stable_output() {
-    let dash = Dash::dashed().with_density(1.5);
-    let stroke = Stroke {
-        width: 2.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let dash = Dash::dashed().try_with_density(1.5).unwrap();
+    let stroke = stroke_with_dash(2.0, dash);
     let geometry = Shape::try_ellipse(mk_point(20.0, 20.0), mk_size(15.0, 10.0))
         .unwrap()
         .dashed_stroke(stroke)
@@ -376,12 +421,8 @@ fn ellipse_dashes_have_stable_output() {
 
 #[test]
 fn ellipse_dashes_use_consistent_concave_arc_lengths() {
-    let dash = Dash::dashed().with_density(1.2).rounded();
-    let stroke = Stroke {
-        width: 4.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let dash = Dash::dashed().try_with_density(1.2).unwrap().rounded();
+    let stroke = stroke_with_dash(4.0, dash);
     let metrics = DashMetrics::resolve(stroke, dash);
     let radii = mk_size(40.0, 18.0);
     let steps = ellipse_steps(radii);
@@ -406,12 +447,8 @@ fn ellipse_dashes_use_consistent_concave_arc_lengths() {
 
 #[test]
 fn rounded_rect_dashes_include_corner_anchors_without_overlap() {
-    let dash = Dash::dashed().with_density(1.1);
-    let stroke = Stroke {
-        width: 6.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let dash = Dash::dashed().try_with_density(1.1).unwrap();
+    let stroke = stroke_with_dash(6.0, dash);
     let rect = mk_rect(0.0, 0.0, 120.0, 80.0);
     let geometry = Shape::try_rounded_rect(rect, radii_all(20.0))
         .unwrap()
@@ -432,12 +469,8 @@ fn rounded_rect_dashes_include_corner_anchors_without_overlap() {
 
 #[test]
 fn rounded_rect_corner_points_are_distribution_anchors() {
-    let dash = Dash::dashed().with_density(1.0);
-    let stroke = Stroke {
-        width: 6.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let dash = Dash::dashed().try_with_density(1.0).unwrap();
+    let stroke = stroke_with_dash(6.0, dash);
     let metrics = DashMetrics::resolve(stroke, dash);
     let contour = RectContour::new(mk_rect(0.0, 0.0, 120.0, 80.0), radii_all(24.0), metrics);
     let anchors = contour.corner_offsets();
@@ -454,12 +487,8 @@ fn rounded_rect_corner_points_are_distribution_anchors() {
 
 #[test]
 fn rounded_rect_dashes_contain_owned_corner_points() {
-    let dash = Dash::dashed().with_density(1.0);
-    let stroke = Stroke {
-        width: 6.0,
-        dash: Some(dash),
-        ..Stroke::default()
-    };
+    let dash = Dash::dashed().try_with_density(1.0).unwrap();
+    let stroke = stroke_with_dash(6.0, dash);
     let rect = mk_rect(0.0, 0.0, 120.0, 80.0);
     let radii = radii_all(24.0);
     let geometry = Shape::try_rounded_rect(rect, radii)

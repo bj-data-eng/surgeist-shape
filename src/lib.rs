@@ -31,9 +31,9 @@ pub use stroke::{LineCap, LineJoin, Stroke, StrokeAlign};
 pub use value::{Finite, NonNegative, NumericKind};
 
 pub(crate) use dash::{dash_ellipse, dash_rect};
+pub(crate) use error::validate_finite;
 #[allow(unused_imports)]
 pub(crate) use error::validate_non_negative_kind;
-pub(crate) use error::{validate_finite, validate_non_negative};
 pub(crate) use key::{StableHasher, hash_point, hash_radii, hash_rect};
 pub(crate) use path::{path_from_points, path_polyline_length};
 pub(crate) use value::negative_code;
