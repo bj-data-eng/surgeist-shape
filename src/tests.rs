@@ -6,6 +6,27 @@ use super::dash::{
 use super::*;
 
 #[test]
+fn non_negative_scalar_rejects_negative_values_with_semantic_code() {
+    let error = NonNegative::try_new(-1.0, NumericKind::Size).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::NegativeSize);
+}
+
+#[test]
+fn non_negative_scalar_rejects_negative_radius_with_radius_code() {
+    let error = NonNegative::try_new(-1.0, NumericKind::Radius).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::NegativeRadius);
+}
+
+#[test]
+fn finite_scalar_rejects_nan() {
+    let error = Finite::try_new(f64::NAN, "point x").unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::NonFinite);
+}
+
+#[test]
 fn radii_normalization_reduces_asymmetric_corners() {
     let rect = Rect::new(0.0, 0.0, 10.0, 8.0);
     let radii = Radii::new(8.0, 8.0, 4.0, 4.0).normalized_for(rect).unwrap();

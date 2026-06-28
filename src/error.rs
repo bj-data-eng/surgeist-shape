@@ -1,5 +1,7 @@
 use std::{error, fmt};
 
+use crate::{NumericKind, negative_code};
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -32,6 +34,7 @@ pub enum ErrorCode {
     NegativeSize,
     NegativeRadius,
     InvalidPath,
+    InvalidStroke,
     InvalidDash,
     EmptyPath,
     UnsupportedStrokeBounds,
@@ -48,12 +51,16 @@ pub(crate) fn validate_finite(value: f64, name: &str) -> Result<()> {
 }
 
 pub(crate) fn validate_non_negative(value: f64, name: &str) -> Result<()> {
+    validate_non_negative_kind(value, name, NumericKind::Size)
+}
+
+pub(crate) fn validate_non_negative_kind(value: f64, name: &str, kind: NumericKind) -> Result<()> {
     validate_finite(value, name)?;
     if value >= 0.0 {
         Ok(())
     } else {
         Err(Error::new(
-            ErrorCode::NegativeSize,
+            negative_code(kind),
             format!("{name} must be non-negative"),
         ))
     }
