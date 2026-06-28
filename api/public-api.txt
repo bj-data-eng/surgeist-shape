@@ -60,40 +60,6 @@ pub surgeist_shape::NumericKind::Radius
 pub surgeist_shape::NumericKind::Size
 pub surgeist_shape::NumericKind::Stroke
 pub surgeist_shape::NumericKind::Transform
-pub enum surgeist_shape::Shape
-pub surgeist_shape::Shape::Circle
-pub surgeist_shape::Shape::Circle::center: surgeist_shape::Point
-pub surgeist_shape::Shape::Circle::radius: f64
-pub surgeist_shape::Shape::Ellipse
-pub surgeist_shape::Shape::Ellipse::center: surgeist_shape::Point
-pub surgeist_shape::Shape::Ellipse::radii: surgeist_shape::Size
-pub surgeist_shape::Shape::Path
-pub surgeist_shape::Shape::Path::fill_rule: surgeist_shape::FillRule
-pub surgeist_shape::Shape::Path::path: surgeist_shape::Path
-pub surgeist_shape::Shape::Rect(surgeist_shape::Rect)
-pub surgeist_shape::Shape::RoundedRect
-pub surgeist_shape::Shape::RoundedRect::radii: surgeist_shape::Radii
-pub surgeist_shape::Shape::RoundedRect::rect: surgeist_shape::Rect
-impl surgeist_shape::Shape
-pub fn surgeist_shape::Shape::bounds(&self) -> surgeist_shape::Rect
-pub const fn surgeist_shape::Shape::circle(center: surgeist_shape::Point, radius: f64) -> Self
-pub fn surgeist_shape::Shape::contains(&self, point: surgeist_shape::Point) -> bool
-pub fn surgeist_shape::Shape::dashed_stroke(&self, stroke: surgeist_shape::Stroke) -> surgeist_shape::Result<surgeist_shape::DashGeometry>
-pub fn surgeist_shape::Shape::deflate(&self, amount: f64) -> surgeist_shape::Result<Self>
-pub const fn surgeist_shape::Shape::ellipse(center: surgeist_shape::Point, radii: surgeist_shape::Size) -> Self
-pub fn surgeist_shape::Shape::inflate(&self, amount: f64) -> surgeist_shape::Result<Self>
-pub fn surgeist_shape::Shape::key(&self) -> surgeist_shape::Key
-pub const fn surgeist_shape::Shape::path(path: surgeist_shape::Path, fill_rule: surgeist_shape::FillRule) -> Self
-pub const fn surgeist_shape::Shape::rect(rect: surgeist_shape::Rect) -> Self
-pub const fn surgeist_shape::Shape::rounded_rect(rect: surgeist_shape::Rect, radii: surgeist_shape::Radii) -> Self
-pub fn surgeist_shape::Shape::support_bounds(&self, outset: surgeist_shape::Insets) -> surgeist_shape::Result<surgeist_shape::Rect>
-pub fn surgeist_shape::Shape::to_kurbo_path(&self) -> surgeist_shape::Result<kurbo::bezpath::BezPath>
-pub fn surgeist_shape::Shape::to_kurbo_rect(&self) -> core::option::Option<kurbo::rect::Rect>
-pub fn surgeist_shape::Shape::to_kurbo_rounded_rect(&self) -> core::option::Option<kurbo::rounded_rect::RoundedRect>
-pub fn surgeist_shape::Shape::to_path(&self) -> surgeist_shape::Result<surgeist_shape::Path>
-pub fn surgeist_shape::Shape::transformed_bounds(&self, transform: surgeist_shape::Transform) -> surgeist_shape::Result<surgeist_shape::Rect>
-pub fn surgeist_shape::Shape::validate(&self) -> surgeist_shape::Result<()>
-pub fn surgeist_shape::Shape::visual_bounds(&self, stroke: core::option::Option<surgeist_shape::Stroke>) -> surgeist_shape::Result<surgeist_shape::Rect>
 pub enum surgeist_shape::Side
 pub surgeist_shape::Side::Bottom
 pub surgeist_shape::Side::Left
@@ -268,6 +234,28 @@ pub type surgeist_shape::Rect::Error = surgeist_shape::Error
 pub fn surgeist_shape::Rect::try_from(rect: kurbo::rect::Rect) -> surgeist_shape::Result<Self>
 impl core::default::Default for surgeist_shape::Rect
 pub fn surgeist_shape::Rect::default() -> Self
+pub struct surgeist_shape::Shape
+impl surgeist_shape::Shape
+pub fn surgeist_shape::Shape::bounds(&self) -> surgeist_shape::Rect
+pub fn surgeist_shape::Shape::contains(&self, point: surgeist_shape::Point) -> bool
+pub fn surgeist_shape::Shape::dashed_stroke(&self, stroke: surgeist_shape::Stroke) -> surgeist_shape::Result<surgeist_shape::DashGeometry>
+pub fn surgeist_shape::Shape::deflate(&self, amount: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::inflate(&self, amount: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::key(&self) -> surgeist_shape::Key
+pub const fn surgeist_shape::Shape::rect(rect: surgeist_shape::Rect) -> Self
+pub fn surgeist_shape::Shape::support_bounds(&self, outset: surgeist_shape::Insets) -> surgeist_shape::Result<surgeist_shape::Rect>
+pub fn surgeist_shape::Shape::to_kurbo_path(&self) -> surgeist_shape::Result<kurbo::bezpath::BezPath>
+pub fn surgeist_shape::Shape::to_kurbo_rect(&self) -> core::option::Option<kurbo::rect::Rect>
+pub fn surgeist_shape::Shape::to_kurbo_rounded_rect(&self) -> core::option::Option<kurbo::rounded_rect::RoundedRect>
+pub fn surgeist_shape::Shape::to_path(&self) -> surgeist_shape::Result<surgeist_shape::Path>
+pub fn surgeist_shape::Shape::transformed_bounds(&self, transform: surgeist_shape::Transform) -> surgeist_shape::Result<surgeist_shape::Rect>
+pub fn surgeist_shape::Shape::try_circle(center: surgeist_shape::Point, radius: f64) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::try_ellipse(center: surgeist_shape::Point, radii: surgeist_shape::Size) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::try_path(path: surgeist_shape::Path, fill_rule: surgeist_shape::FillRule) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::try_rect(rect: surgeist_shape::Rect) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::try_rounded_rect(rect: surgeist_shape::Rect, radii: surgeist_shape::Radii) -> surgeist_shape::Result<Self>
+pub fn surgeist_shape::Shape::validate(&self) -> surgeist_shape::Result<()>
+pub fn surgeist_shape::Shape::visual_bounds(&self, stroke: core::option::Option<surgeist_shape::Stroke>) -> surgeist_shape::Result<surgeist_shape::Rect>
 pub struct surgeist_shape::SideSet
 pub surgeist_shape::SideSet::bottom: bool
 pub surgeist_shape::SideSet::left: bool

@@ -2,75 +2,100 @@ use super::*;
 use kurbo::Shape as KurboShape;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Shape {
+pub struct Shape {
+    kind: ShapeKind,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ShapeKind {
     Rect(Rect),
     RoundedRect { rect: Rect, radii: Radii },
-    Circle { center: Point, radius: f64 },
+    Circle { center: Point, radius: NonNegative },
     Ellipse { center: Point, radii: Size },
     Path { path: Path, fill_rule: FillRule },
 }
 
 impl Shape {
+    pub fn try_rect(rect: Rect) -> Result<Self> {
+        rect.validate("rect")?;
+        Ok(Self {
+            kind: ShapeKind::Rect(rect),
+        })
+    }
+
     #[must_use]
     pub const fn rect(rect: Rect) -> Self {
-        Self::Rect(rect)
+        Self {
+            kind: ShapeKind::Rect(rect),
+        }
     }
 
-    #[must_use]
-    pub const fn rounded_rect(rect: Rect, radii: Radii) -> Self {
-        Self::RoundedRect { rect, radii }
+    pub fn try_rounded_rect(rect: Rect, radii: Radii) -> Result<Self> {
+        rect.validate("rounded rect")?;
+        radii.normalized_for(rect)?;
+        Ok(Self {
+            kind: ShapeKind::RoundedRect { rect, radii },
+        })
     }
 
-    #[must_use]
-    pub const fn circle(center: Point, radius: f64) -> Self {
-        Self::Circle { center, radius }
+    pub fn try_circle(center: Point, radius: f64) -> Result<Self> {
+        center.validate("circle center")?;
+        let radius = NonNegative::try_new(radius, NumericKind::Radius)?;
+        Ok(Self {
+            kind: ShapeKind::Circle { center, radius },
+        })
     }
 
-    #[must_use]
-    pub const fn ellipse(center: Point, radii: Size) -> Self {
-        Self::Ellipse { center, radii }
+    pub fn try_ellipse(center: Point, radii: Size) -> Result<Self> {
+        center.validate("ellipse center")?;
+        radii.validate("ellipse radii")?;
+        Ok(Self {
+            kind: ShapeKind::Ellipse { center, radii },
+        })
     }
 
-    #[must_use]
-    pub const fn path(path: Path, fill_rule: FillRule) -> Self {
-        Self::Path { path, fill_rule }
+    pub fn try_path(path: Path, fill_rule: FillRule) -> Result<Self> {
+        path.validate()?;
+        Ok(Self {
+            kind: ShapeKind::Path { path, fill_rule },
+        })
     }
 
     pub fn validate(&self) -> Result<()> {
-        match self {
-            Shape::Rect(rect) => rect.validate("rect"),
-            Shape::RoundedRect { rect, radii } => {
+        match &self.kind {
+            ShapeKind::Rect(rect) => rect.validate("rect"),
+            ShapeKind::RoundedRect { rect, radii } => {
                 rect.validate("rounded rect")?;
                 radii.normalized_for(*rect).map(|_| ())
             }
-            Shape::Circle { center, radius } => {
+            ShapeKind::Circle { center, radius } => {
                 center.validate("circle center")?;
-                validate_non_negative(*radius, "circle radius")
+                NonNegative::try_new(radius.get(), NumericKind::Radius).map(|_| ())
             }
-            Shape::Ellipse { center, radii } => {
+            ShapeKind::Ellipse { center, radii } => {
                 center.validate("ellipse center")?;
                 radii.validate("ellipse radii")
             }
-            Shape::Path { path, .. } => path.validate(),
+            ShapeKind::Path { path, .. } => path.validate(),
         }
     }
 
     pub fn bounds(&self) -> Rect {
-        match self {
-            Shape::Rect(rect) | Shape::RoundedRect { rect, .. } => *rect,
-            Shape::Circle { center, radius } => Rect::new(
-                center.x() - radius,
-                center.y() - radius,
-                radius * 2.0,
-                radius * 2.0,
+        match &self.kind {
+            ShapeKind::Rect(rect) | ShapeKind::RoundedRect { rect, .. } => *rect,
+            ShapeKind::Circle { center, radius } => Rect::new(
+                center.x() - radius.get(),
+                center.y() - radius.get(),
+                radius.get() * 2.0,
+                radius.get() * 2.0,
             ),
-            Shape::Ellipse { center, radii } => Rect::new(
+            ShapeKind::Ellipse { center, radii } => Rect::new(
                 center.x() - radii.width(),
                 center.y() - radii.height(),
                 radii.width() * 2.0,
                 radii.height() * 2.0,
             ),
-            Shape::Path { path, .. } => path.bounds(),
+            ShapeKind::Path { path, .. } => path.bounds(),
         }
     }
 
@@ -84,7 +109,7 @@ impl Shape {
             StrokeAlign::Inside => 0.0,
             StrokeAlign::Outside => stroke.width,
         };
-        if matches!(self, Shape::Path { .. }) && stroke.align != StrokeAlign::Center {
+        if matches!(&self.kind, ShapeKind::Path { .. }) && stroke.align != StrokeAlign::Center {
             return Err(Error::new(
                 ErrorCode::UnsupportedStrokeBounds,
                 "inside and outside stroke bounds for arbitrary paths are not supported",
@@ -103,11 +128,11 @@ impl Shape {
     }
 
     pub fn contains(&self, point: Point) -> bool {
-        match self {
-            Shape::Rect(rect) => rect.contains(point),
-            Shape::RoundedRect { rect, radii } => rounded_rect_contains(*rect, *radii, point),
-            Shape::Circle { center, radius } => center.distance_to(point) <= *radius,
-            Shape::Ellipse { center, radii } => {
+        match &self.kind {
+            ShapeKind::Rect(rect) => rect.contains(point),
+            ShapeKind::RoundedRect { rect, radii } => rounded_rect_contains(*rect, *radii, point),
+            ShapeKind::Circle { center, radius } => center.distance_to(point) <= radius.get(),
+            ShapeKind::Ellipse { center, radii } => {
                 if radii.width() <= 0.0 || radii.height() <= 0.0 {
                     return false;
                 }
@@ -115,36 +140,32 @@ impl Shape {
                 let y = (point.y() - center.y()) / radii.height();
                 x * x + y * y <= 1.0
             }
-            Shape::Path { path, fill_rule } => path.contains(point, *fill_rule),
+            ShapeKind::Path { path, fill_rule } => path.contains(point, *fill_rule),
         }
     }
 
     pub fn inflate(&self, amount: f64) -> Result<Self> {
         validate_finite(amount, "inflate amount")?;
-        Ok(match self {
-            Shape::Rect(rect) => Shape::Rect(rect.outset(Insets::all(amount))),
-            Shape::RoundedRect { rect, radii } => Shape::RoundedRect {
-                rect: rect.outset(Insets::all(amount)),
-                radii: radii.outset(amount),
-            },
-            Shape::Circle { center, radius } => Shape::Circle {
-                center: *center,
-                radius: (radius + amount).max(0.0),
-            },
-            Shape::Ellipse { center, radii } => Shape::Ellipse {
-                center: *center,
-                radii: Size::new(
+        match &self.kind {
+            ShapeKind::Rect(rect) => Self::try_rect(outset_rect_clamped(*rect, amount)?),
+            ShapeKind::RoundedRect { rect, radii } => {
+                Self::try_rounded_rect(outset_rect_clamped(*rect, amount)?, radii.outset(amount))
+            }
+            ShapeKind::Circle { center, radius } => {
+                Self::try_circle(*center, (radius.get() + amount).max(0.0))
+            }
+            ShapeKind::Ellipse { center, radii } => Self::try_ellipse(
+                *center,
+                Size::try_new(
                     (radii.width() + amount).max(0.0),
                     (radii.height() + amount).max(0.0),
-                ),
-            },
-            Shape::Path { .. } => {
-                return Err(Error::new(
-                    ErrorCode::UnsupportedStrokeBounds,
-                    "inflating arbitrary paths is not supported",
-                ));
-            }
-        })
+                )?,
+            ),
+            ShapeKind::Path { .. } => Err(Error::new(
+                ErrorCode::UnsupportedStrokeBounds,
+                "inflating arbitrary paths is not supported",
+            )),
+        }
     }
 
     pub fn deflate(&self, amount: f64) -> Result<Self> {
@@ -157,35 +178,35 @@ impl Shape {
 
     pub fn to_kurbo_path(&self) -> Result<kurbo::BezPath> {
         self.validate()?;
-        Ok(match self {
-            Shape::Rect(rect) => rect.to_kurbo().to_path(PATH_TOLERANCE),
-            Shape::RoundedRect { rect, radii } => {
+        Ok(match &self.kind {
+            ShapeKind::Rect(rect) => rect.to_kurbo().to_path(PATH_TOLERANCE),
+            ShapeKind::RoundedRect { rect, radii } => {
                 let radii = radii.normalized_for(*rect)?;
                 kurbo::RoundedRect::from_rect(rect.to_kurbo(), radii.to_kurbo())
                     .to_path(PATH_TOLERANCE)
             }
-            Shape::Circle { center, radius } => {
-                kurbo::Circle::new(center.to_kurbo(), *radius).to_path(PATH_TOLERANCE)
+            ShapeKind::Circle { center, radius } => {
+                kurbo::Circle::new(center.to_kurbo(), radius.get()).to_path(PATH_TOLERANCE)
             }
-            Shape::Ellipse { center, radii } => {
+            ShapeKind::Ellipse { center, radii } => {
                 kurbo::Ellipse::new(center.to_kurbo(), (radii.width(), radii.height()), 0.0)
                     .to_path(PATH_TOLERANCE)
             }
-            Shape::Path { path, .. } => path.to_kurbo(),
+            ShapeKind::Path { path, .. } => path.to_kurbo(),
         })
     }
 
     #[must_use]
     pub fn to_kurbo_rect(&self) -> Option<kurbo::Rect> {
-        match self {
-            Shape::Rect(rect) => Some(rect.to_kurbo()),
+        match &self.kind {
+            ShapeKind::Rect(rect) => Some(rect.to_kurbo()),
             _ => None,
         }
     }
 
     pub fn to_kurbo_rounded_rect(&self) -> Option<kurbo::RoundedRect> {
-        match self {
-            Shape::RoundedRect { rect, radii } => Some(kurbo::RoundedRect::from_rect(
+        match &self.kind {
+            ShapeKind::RoundedRect { rect, radii } => Some(kurbo::RoundedRect::from_rect(
                 rect.to_kurbo(),
                 radii.normalized_for(*rect).ok()?.to_kurbo(),
             )),
@@ -196,28 +217,33 @@ impl Shape {
     #[must_use]
     pub fn key(&self) -> Key {
         let mut state = StableHasher::new(0xcbf2_9ce4_8422_2325);
-        match self {
-            Shape::Rect(rect) => {
+        match &self.kind {
+            ShapeKind::Rect(rect) => {
                 state.write_u8(1);
                 hash_rect(&mut state, *rect);
             }
-            Shape::RoundedRect { rect, radii } => {
+            ShapeKind::RoundedRect { rect, radii } => {
                 state.write_u8(2);
                 hash_rect(&mut state, *rect);
-                hash_radii(&mut state, radii.normalized_for(*rect).unwrap_or(*radii));
+                hash_radii(
+                    &mut state,
+                    radii
+                        .normalized_for(*rect)
+                        .expect("shape rounded rect was validated at construction"),
+                );
             }
-            Shape::Circle { center, radius } => {
+            ShapeKind::Circle { center, radius } => {
                 state.write_u8(3);
                 hash_point(&mut state, *center);
-                state.write_f64(*radius);
+                state.write_f64(radius.get());
             }
-            Shape::Ellipse { center, radii } => {
+            ShapeKind::Ellipse { center, radii } => {
                 state.write_u8(4);
                 hash_point(&mut state, *center);
                 state.write_f64(radii.width());
                 state.write_f64(radii.height());
             }
-            Shape::Path { path, fill_rule } => {
+            ShapeKind::Path { path, fill_rule } => {
                 state.write_u8(5);
                 path.hash_with_rule(&mut state, *fill_rule);
             }
@@ -234,21 +260,30 @@ impl Shape {
             .dash
             .ok_or_else(|| Error::new(ErrorCode::InvalidDash, "stroke has no dash geometry"))?;
         dash.validate()?;
-        match self {
-            Shape::Rect(rect) => dash_rect(*rect, Radii::zero(), stroke),
-            Shape::RoundedRect { rect, radii } => {
+        match &self.kind {
+            ShapeKind::Rect(rect) => dash_rect(*rect, Radii::zero(), stroke),
+            ShapeKind::RoundedRect { rect, radii } => {
                 dash_rect(*rect, radii.normalized_for(*rect)?, stroke)
             }
-            Shape::Circle { center, radius } => {
-                dash_ellipse(*center, Size::new(*radius, *radius), stroke)
+            ShapeKind::Circle { center, radius } => {
+                dash_ellipse(*center, Size::new(radius.get(), radius.get()), stroke)
             }
-            Shape::Ellipse { center, radii } => dash_ellipse(*center, *radii, stroke),
-            Shape::Path { .. } => Err(Error::new(
+            ShapeKind::Ellipse { center, radii } => dash_ellipse(*center, *radii, stroke),
+            ShapeKind::Path { .. } => Err(Error::new(
                 ErrorCode::InvalidDash,
                 "dash geometry for arbitrary paths is not part of the first implementation",
             )),
         }
     }
+}
+
+fn outset_rect_clamped(rect: Rect, amount: f64) -> Result<Rect> {
+    Rect::try_new(
+        rect.origin().x() - amount,
+        rect.origin().y() - amount,
+        (rect.width() + amount * 2.0).max(0.0),
+        (rect.height() + amount * 2.0).max(0.0),
+    )
 }
 
 fn rounded_rect_contains(rect: Rect, radii: Radii, point: Point) -> bool {

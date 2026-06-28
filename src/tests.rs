@@ -114,6 +114,47 @@ fn empty_path_is_explicitly_valid_empty_geometry() {
 }
 
 #[test]
+fn shape_circle_rejects_negative_radius_at_construction() {
+    let error = Shape::try_circle(Point::zero(), -1.0).unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::NegativeRadius);
+}
+
+#[test]
+fn shape_ellipse_accepts_valid_radii_through_front_door() {
+    let shape = Shape::try_ellipse(Point::zero(), Size::try_new(2.0, 3.0).unwrap()).unwrap();
+
+    assert_eq!(shape.bounds(), Rect::try_new(-2.0, -3.0, 4.0, 6.0).unwrap());
+}
+
+#[test]
+fn shape_path_accepts_only_validated_path() {
+    let mut builder = PathBuilder::new();
+    builder
+        .move_to(Point::zero())
+        .line_to(Point::try_new(1.0, 0.0).unwrap())
+        .line_to(Point::try_new(1.0, 1.0).unwrap())
+        .close();
+    let path = builder.build().unwrap();
+    let shape = Shape::try_path(path, FillRule::NonZero).unwrap();
+
+    assert!(!shape.bounds().is_empty());
+}
+
+#[test]
+fn shape_path_bounds_preserve_degenerate_path_bounds() {
+    let mut builder = PathBuilder::new();
+    builder
+        .move_to(Point::zero())
+        .line_to(Point::try_new(1.0, 0.0).unwrap());
+    let path = builder.build().unwrap();
+    let expected = path.bounds();
+    let shape = Shape::try_path(path, FillRule::NonZero).unwrap();
+
+    assert_eq!(shape.bounds(), expected);
+}
+
+#[test]
 fn radii_normalization_reduces_asymmetric_corners() {
     let rect = mk_rect(0.0, 0.0, 10.0, 8.0);
     let radii = radii(8.0, 8.0, 4.0, 4.0).normalized_for(rect).unwrap();
@@ -143,16 +184,18 @@ fn path_fill_rule_affects_key() {
 
     assert_ne!(path.key(FillRule::NonZero), path.key(FillRule::EvenOdd));
     assert_ne!(
-        Shape::path(path.clone(), FillRule::NonZero).key(),
-        Shape::path(path, FillRule::EvenOdd).key()
+        Shape::try_path(path.clone(), FillRule::NonZero)
+            .unwrap()
+            .key(),
+        Shape::try_path(path, FillRule::EvenOdd).unwrap().key()
     );
 }
 
 #[test]
 fn shape_keys_are_stable_and_distinguish_normalized_geometry() {
-    let rect = Shape::rounded_rect(mk_rect(0.0, 0.0, 10.0, 8.0), radii_all(12.0));
-    let same = Shape::rounded_rect(mk_rect(0.0, 0.0, 10.0, 8.0), radii_all(20.0));
-    let different = Shape::rounded_rect(mk_rect(0.0, 0.0, 12.0, 8.0), radii_all(20.0));
+    let rect = Shape::try_rounded_rect(mk_rect(0.0, 0.0, 10.0, 8.0), radii_all(12.0)).unwrap();
+    let same = Shape::try_rounded_rect(mk_rect(0.0, 0.0, 10.0, 8.0), radii_all(20.0)).unwrap();
+    let different = Shape::try_rounded_rect(mk_rect(0.0, 0.0, 12.0, 8.0), radii_all(20.0)).unwrap();
 
     assert_eq!(rect.key(), rect.key());
     assert_eq!(rect.key(), same.key());
@@ -316,14 +359,16 @@ fn ellipse_dashes_have_stable_output() {
         dash: Some(dash),
         ..Stroke::default()
     };
-    let geometry = Shape::ellipse(mk_point(20.0, 20.0), mk_size(15.0, 10.0))
+    let geometry = Shape::try_ellipse(mk_point(20.0, 20.0), mk_size(15.0, 10.0))
+        .unwrap()
         .dashed_stroke(stroke)
         .unwrap();
 
     assert!(!geometry.is_empty());
     assert_eq!(
         geometry,
-        Shape::ellipse(mk_point(20.0, 20.0), mk_size(15.0, 10.0))
+        Shape::try_ellipse(mk_point(20.0, 20.0), mk_size(15.0, 10.0))
+            .unwrap()
             .dashed_stroke(stroke)
             .unwrap()
     );
@@ -350,7 +395,8 @@ fn ellipse_dashes_use_consistent_concave_arc_lengths() {
     );
     let measure_total = polyline_length(&closed_measure_points(&measure));
     let centers = centered_closed_points(measure_total, metrics);
-    let geometry = Shape::ellipse(mk_point(20.0, 20.0), mk_size(40.0, 18.0))
+    let geometry = Shape::try_ellipse(mk_point(20.0, 20.0), mk_size(40.0, 18.0))
+        .unwrap()
         .dashed_stroke(stroke)
         .unwrap();
 
@@ -367,7 +413,8 @@ fn rounded_rect_dashes_include_corner_anchors_without_overlap() {
         ..Stroke::default()
     };
     let rect = mk_rect(0.0, 0.0, 120.0, 80.0);
-    let geometry = Shape::rounded_rect(rect, radii_all(20.0))
+    let geometry = Shape::try_rounded_rect(rect, radii_all(20.0))
+        .unwrap()
         .dashed_stroke(stroke)
         .unwrap();
 
@@ -415,7 +462,8 @@ fn rounded_rect_dashes_contain_owned_corner_points() {
     };
     let rect = mk_rect(0.0, 0.0, 120.0, 80.0);
     let radii = radii_all(24.0);
-    let geometry = Shape::rounded_rect(rect, radii)
+    let geometry = Shape::try_rounded_rect(rect, radii)
+        .unwrap()
         .dashed_stroke(stroke)
         .unwrap();
 
