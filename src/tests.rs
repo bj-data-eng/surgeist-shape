@@ -225,6 +225,44 @@ fn dash_with_anchor_rejects_fifth_anchor() {
 }
 
 #[test]
+fn public_front_doors_construct_valid_shape_and_dash_geometry() {
+    let rect = Rect::try_new(0.0, 0.0, 80.0, 40.0).unwrap();
+    let shape = Shape::try_rounded_rect(rect, Radii::try_all(8.0).unwrap()).unwrap();
+    let dash = Dash::dashed().with_corner_anchors();
+    let stroke = Stroke::try_centered(2.0).unwrap().with_dash(dash);
+    let geometry = shape.dashed_stroke(stroke).unwrap();
+
+    assert!(!geometry.is_empty());
+}
+
+#[test]
+fn invalid_public_models_do_not_have_literal_backdoors() {
+    let api = std::fs::read_to_string("api/public-api.txt").unwrap();
+
+    assert!(!api.contains("pub surgeist_shape::Stroke::width"));
+    assert!(!api.contains("pub surgeist_shape::DashSegment::width"));
+    assert!(!api.contains("pub surgeist_shape::Rect::size"));
+    assert!(!api.contains("pub surgeist_shape::Shape::Circle::radius"));
+    assert!(!api.contains("pub surgeist_shape::Point::x"));
+    assert!(!api.contains("pub surgeist_shape::Size::width"));
+    assert!(!api.contains("pub struct surgeist_shape::Transform(pub [f64; 6])"));
+    assert!(!api.contains("pub surgeist_shape::DashAnchor::ContourOffset(f64)"));
+    assert!(
+        !api.contains("impl core::convert::From<kurbo::point::Point> for surgeist_shape::Point")
+    );
+    assert!(!api.contains("impl core::convert::From<kurbo::rect::Rect> for surgeist_shape::Rect"));
+    assert!(!api.contains("pub fn surgeist_shape::Point::translate("));
+    assert!(!api.contains("pub fn surgeist_shape::Rect::inset("));
+    assert!(!api.contains("pub fn surgeist_shape::Rect::outset("));
+    assert!(!api.contains("pub fn surgeist_shape::Rect::translate("));
+    assert!(!api.contains("pub fn surgeist_shape::Radii::inset("));
+    assert!(!api.contains("pub fn surgeist_shape::Radii::outset("));
+    assert!(!api.contains("pub fn surgeist_shape::Transform::then("));
+    assert!(!api.contains("pub fn surgeist_shape::Transform::apply_point("));
+    assert!(!api.contains("pub fn surgeist_shape::Transform::apply_rect("));
+}
+
+#[test]
 fn radii_normalization_reduces_asymmetric_corners() {
     let rect = mk_rect(0.0, 0.0, 10.0, 8.0);
     let radii = radii(8.0, 8.0, 4.0, 4.0).normalized_for(rect).unwrap();
