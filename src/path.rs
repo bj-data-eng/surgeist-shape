@@ -2,19 +2,19 @@ use super::*;
 use kurbo::Shape as KurboShape;
 
 #[derive(Clone, Debug, Default, PartialEq)]
+pub struct PathBuilder {
+    commands: Vec<Command>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Path {
     commands: Vec<Command>,
 }
 
-impl Path {
+impl PathBuilder {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
     }
 
     pub fn move_to(&mut self, point: Point) -> &mut Self {
@@ -46,52 +46,40 @@ impl Path {
         self
     }
 
+    pub fn build(self) -> Result<Path> {
+        Path::from_commands(self.commands)
+    }
+}
+
+impl Path {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            commands: Vec::new(),
+        }
+    }
+
+    pub fn from_commands(commands: Vec<Command>) -> Result<Self> {
+        validate_commands(&commands)?;
+        Ok(Self { commands })
+    }
+
+    pub(crate) fn from_commands_unchecked(commands: Vec<Command>) -> Self {
+        Self { commands }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+
     #[must_use]
     pub fn commands(&self) -> &[Command] {
         &self.commands
     }
 
     pub fn validate(&self) -> Result<()> {
-        let mut moved = false;
-        for command in &self.commands {
-            match *command {
-                Command::MoveTo(point) => {
-                    point.validate("path move")?;
-                    moved = true;
-                }
-                Command::LineTo(point) => {
-                    if !moved {
-                        return Err(Error::new(ErrorCode::InvalidPath, "path line before move"));
-                    }
-                    point.validate("path line")?;
-                }
-                Command::QuadTo { control, end } => {
-                    if !moved {
-                        return Err(Error::new(ErrorCode::InvalidPath, "path quad before move"));
-                    }
-                    control.validate("path quad control")?;
-                    end.validate("path quad end")?;
-                }
-                Command::CubicTo {
-                    control_a,
-                    control_b,
-                    end,
-                } => {
-                    if !moved {
-                        return Err(Error::new(ErrorCode::InvalidPath, "path cubic before move"));
-                    }
-                    control_a.validate("path cubic control a")?;
-                    control_b.validate("path cubic control b")?;
-                    end.validate("path cubic end")?;
-                }
-                Command::Close => {
-                    if !moved {
-                        return Err(Error::new(ErrorCode::InvalidPath, "path close before move"));
-                    }
-                }
-            }
-        }
-        Ok(())
+        validate_commands(&self.commands)
     }
 
     #[must_use]
@@ -143,34 +131,38 @@ impl Path {
     }
 
     pub(crate) fn from_kurbo(path: kurbo::BezPath) -> Self {
-        let mut result = Self::new();
+        let mut commands = Vec::new();
         for element in path.elements() {
             match *element {
                 kurbo::PathEl::MoveTo(point) => {
-                    result.move_to(Point::new_unchecked(point.x, point.y));
+                    commands.push(Command::MoveTo(Point::new_unchecked(point.x, point.y)));
                 }
                 kurbo::PathEl::LineTo(point) => {
-                    result.line_to(Point::new_unchecked(point.x, point.y));
+                    commands.push(Command::LineTo(Point::new_unchecked(point.x, point.y)));
                 }
                 kurbo::PathEl::QuadTo(control, end) => {
-                    result.quad_to(
-                        Point::new_unchecked(control.x, control.y),
-                        Point::new_unchecked(end.x, end.y),
-                    );
+                    commands.push(Command::QuadTo {
+                        control: Point::new_unchecked(control.x, control.y),
+                        end: Point::new_unchecked(end.x, end.y),
+                    });
                 }
                 kurbo::PathEl::CurveTo(a, b, end) => {
-                    result.cubic_to(
-                        Point::new_unchecked(a.x, a.y),
-                        Point::new_unchecked(b.x, b.y),
-                        Point::new_unchecked(end.x, end.y),
-                    );
+                    commands.push(Command::CubicTo {
+                        control_a: Point::new_unchecked(a.x, a.y),
+                        control_b: Point::new_unchecked(b.x, b.y),
+                        end: Point::new_unchecked(end.x, end.y),
+                    });
                 }
                 kurbo::PathEl::ClosePath => {
-                    result.close();
+                    commands.push(Command::Close);
                 }
             }
         }
-        result
+        match commands.first() {
+            None => Self::empty(),
+            Some(Command::MoveTo(_)) => Self::from_commands_unchecked(commands),
+            Some(_) => Self::from_commands(commands).expect("kurbo path elements are ordered"),
+        }
     }
 
     pub(crate) fn hash_with_rule(&self, state: &mut StableHasher, fill_rule: FillRule) {
@@ -232,15 +224,60 @@ pub enum FillRule {
     NonZero,
     EvenOdd,
 }
-pub(crate) fn path_from_points(points: &[Point]) -> Path {
-    let mut path = Path::new();
-    if let Some(first) = points.first() {
-        path.move_to(*first);
-        for point in &points[1..] {
-            path.line_to(*point);
+
+fn validate_commands(commands: &[Command]) -> Result<()> {
+    let mut moved = false;
+    for command in commands {
+        match *command {
+            Command::MoveTo(point) => {
+                point.validate("path move")?;
+                moved = true;
+            }
+            Command::LineTo(point) => {
+                if !moved {
+                    return Err(Error::new(ErrorCode::InvalidPath, "path line before move"));
+                }
+                point.validate("path line")?;
+            }
+            Command::QuadTo { control, end } => {
+                if !moved {
+                    return Err(Error::new(ErrorCode::InvalidPath, "path quad before move"));
+                }
+                control.validate("path quad control")?;
+                end.validate("path quad end")?;
+            }
+            Command::CubicTo {
+                control_a,
+                control_b,
+                end,
+            } => {
+                if !moved {
+                    return Err(Error::new(ErrorCode::InvalidPath, "path cubic before move"));
+                }
+                control_a.validate("path cubic control a")?;
+                control_b.validate("path cubic control b")?;
+                end.validate("path cubic end")?;
+            }
+            Command::Close => {
+                if !moved {
+                    return Err(Error::new(ErrorCode::InvalidPath, "path close before move"));
+                }
+            }
         }
     }
-    path
+    Ok(())
+}
+
+pub(crate) fn path_from_points(points: &[Point]) -> Path {
+    let Some(first) = points.first() else {
+        return Path::empty();
+    };
+    let mut commands = Vec::with_capacity(points.len());
+    commands.push(Command::MoveTo(*first));
+    for point in &points[1..] {
+        commands.push(Command::LineTo(*point));
+    }
+    Path::from_commands_unchecked(commands)
 }
 
 pub(crate) fn path_polyline_length(path: &Path) -> f64 {

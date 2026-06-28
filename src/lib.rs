@@ -25,7 +25,7 @@ pub use dash::{
 pub use error::{Error, ErrorCode, Result};
 pub use geometry::{Insets, Point, Radii, Rect, Size, Transform};
 pub use key::Key;
-pub use path::{Command, FillRule, Path};
+pub use path::{Command, FillRule, Path, PathBuilder};
 pub use primitive::Shape;
 pub use stroke::{LineCap, LineJoin, Stroke, StrokeAlign};
 pub use value::{Finite, NonNegative, NumericKind};

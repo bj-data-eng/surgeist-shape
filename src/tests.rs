@@ -86,6 +86,34 @@ fn transform_helpers_reject_non_finite_inputs() {
 }
 
 #[test]
+fn path_builder_rejects_line_before_move_on_build() {
+    let mut builder = PathBuilder::new();
+    builder.line_to(Point::try_new(1.0, 1.0).unwrap());
+
+    assert_eq!(builder.build().unwrap_err().code, ErrorCode::InvalidPath);
+}
+
+#[test]
+fn validated_path_is_not_empty_after_build() {
+    let mut builder = PathBuilder::new();
+    builder
+        .move_to(Point::try_new(0.0, 0.0).unwrap())
+        .line_to(Point::try_new(1.0, 0.0).unwrap());
+
+    let path = builder.build().unwrap();
+
+    assert!(!path.is_empty());
+}
+
+#[test]
+fn empty_path_is_explicitly_valid_empty_geometry() {
+    let path = PathBuilder::new().build().unwrap();
+
+    assert!(path.is_empty());
+    assert_eq!(path.bounds(), Rect::empty());
+}
+
+#[test]
 fn radii_normalization_reduces_asymmetric_corners() {
     let rect = mk_rect(0.0, 0.0, 10.0, 8.0);
     let radii = radii(8.0, 8.0, 4.0, 4.0).normalized_for(rect).unwrap();
@@ -98,19 +126,20 @@ fn radii_normalization_reduces_asymmetric_corners() {
 
 #[test]
 fn path_rejects_line_before_move() {
-    let mut path = Path::new();
-    path.line_to(mk_point(1.0, 1.0));
+    let error = Path::from_commands(vec![Command::LineTo(mk_point(1.0, 1.0))]).unwrap_err();
 
-    assert_eq!(path.validate().unwrap_err().code, ErrorCode::InvalidPath);
+    assert_eq!(error.code, ErrorCode::InvalidPath);
 }
 
 #[test]
 fn path_fill_rule_affects_key() {
-    let mut path = Path::new();
-    path.move_to(mk_point(0.0, 0.0))
+    let mut builder = PathBuilder::new();
+    builder
+        .move_to(mk_point(0.0, 0.0))
         .line_to(mk_point(10.0, 0.0))
         .line_to(mk_point(10.0, 10.0))
         .close();
+    let path = builder.build().unwrap();
 
     assert_ne!(path.key(FillRule::NonZero), path.key(FillRule::EvenOdd));
     assert_ne!(

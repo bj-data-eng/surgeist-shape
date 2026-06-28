@@ -191,18 +191,23 @@ pub const fn surgeist_shape::NonNegative::zero() -> Self
 pub struct surgeist_shape::Path
 impl surgeist_shape::Path
 pub fn surgeist_shape::Path::bounds(&self) -> surgeist_shape::Rect
-pub fn surgeist_shape::Path::close(&mut self) -> &mut Self
 pub fn surgeist_shape::Path::commands(&self) -> &[surgeist_shape::Command]
 pub fn surgeist_shape::Path::contains(&self, point: surgeist_shape::Point, fill_rule: surgeist_shape::FillRule) -> bool
-pub fn surgeist_shape::Path::cubic_to(&mut self, control_a: surgeist_shape::Point, control_b: surgeist_shape::Point, end: surgeist_shape::Point) -> &mut Self
+pub fn surgeist_shape::Path::empty() -> Self
+pub fn surgeist_shape::Path::from_commands(commands: alloc::vec::Vec<surgeist_shape::Command>) -> surgeist_shape::Result<Self>
 pub fn surgeist_shape::Path::is_empty(&self) -> bool
 pub fn surgeist_shape::Path::key(&self, fill_rule: surgeist_shape::FillRule) -> surgeist_shape::Key
-pub fn surgeist_shape::Path::line_to(&mut self, point: surgeist_shape::Point) -> &mut Self
-pub fn surgeist_shape::Path::move_to(&mut self, point: surgeist_shape::Point) -> &mut Self
-pub fn surgeist_shape::Path::new() -> Self
-pub fn surgeist_shape::Path::quad_to(&mut self, control: surgeist_shape::Point, end: surgeist_shape::Point) -> &mut Self
 pub fn surgeist_shape::Path::to_kurbo(&self) -> kurbo::bezpath::BezPath
 pub fn surgeist_shape::Path::validate(&self) -> surgeist_shape::Result<()>
+pub struct surgeist_shape::PathBuilder
+impl surgeist_shape::PathBuilder
+pub fn surgeist_shape::PathBuilder::build(self) -> surgeist_shape::Result<surgeist_shape::Path>
+pub fn surgeist_shape::PathBuilder::close(&mut self) -> &mut Self
+pub fn surgeist_shape::PathBuilder::cubic_to(&mut self, control_a: surgeist_shape::Point, control_b: surgeist_shape::Point, end: surgeist_shape::Point) -> &mut Self
+pub fn surgeist_shape::PathBuilder::line_to(&mut self, point: surgeist_shape::Point) -> &mut Self
+pub fn surgeist_shape::PathBuilder::move_to(&mut self, point: surgeist_shape::Point) -> &mut Self
+pub fn surgeist_shape::PathBuilder::new() -> Self
+pub fn surgeist_shape::PathBuilder::quad_to(&mut self, control: surgeist_shape::Point, end: surgeist_shape::Point) -> &mut Self
 pub struct surgeist_shape::Point
 impl surgeist_shape::Point
 pub const surgeist_shape::Point::ZERO: Self
