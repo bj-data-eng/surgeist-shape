@@ -166,6 +166,21 @@ fn stroke_constructor_rejects_negative_width() {
 }
 
 #[test]
+fn stroke_style_accessors_return_configured_values() {
+    let stroke = Stroke::try_new(2.0)
+        .unwrap()
+        .with_join(LineJoin::Bevel)
+        .with_caps(LineCap::Round, LineCap::Square)
+        .try_with_miter_limit(12.0)
+        .unwrap();
+
+    assert_eq!(stroke.join(), LineJoin::Bevel);
+    assert_eq!(stroke.start_cap(), LineCap::Round);
+    assert_eq!(stroke.end_cap(), LineCap::Square);
+    assert_eq!(stroke.miter_limit(), 12.0);
+}
+
+#[test]
 fn dash_constructor_rejects_zero_density() {
     let error = Dash::try_new(0.0).unwrap_err();
 

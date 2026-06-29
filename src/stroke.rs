@@ -77,6 +77,26 @@ impl Stroke {
     }
 
     #[must_use]
+    pub const fn join(self) -> LineJoin {
+        self.join
+    }
+
+    #[must_use]
+    pub const fn start_cap(self) -> LineCap {
+        self.start_cap
+    }
+
+    #[must_use]
+    pub const fn end_cap(self) -> LineCap {
+        self.end_cap
+    }
+
+    #[must_use]
+    pub const fn miter_limit(self) -> f64 {
+        self.miter_limit
+    }
+
+    #[must_use]
     pub const fn align(self) -> StrokeAlign {
         self.align
     }
